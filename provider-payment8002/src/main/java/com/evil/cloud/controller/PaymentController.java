@@ -45,4 +45,14 @@ public class PaymentController {
 
     }
 
+    @GetMapping(value = "payment/feginTimeout")
+    public CommonResult feginTimeoutTest() {
+        try {
+            Thread.sleep(3000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return new CommonResult(222, "timeout", null);
+    }
+
 }

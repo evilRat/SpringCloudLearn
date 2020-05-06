@@ -1,0 +1,30 @@
+server:
+  port: 8004
+spring:
+  application:
+    name: payment-service
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: org.gjt.mm.mysql.Driver
+    url: jdbc:mysql://localhost:3306/cloud2020?useUnicode=true&characterEncoding=utf-8&useSSL=false #mysql 5.7以后安全加固，需要配置是否开启ssl
+    username: root
+    password: kz19930903
+  devtools:
+    restart:
+      poll-interval: 3s
+  cloud:
+    zookeeper:
+      connect-string: localhost:2181 # 注册到zk
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.evil.cloud.entities #mapper会从这里找别名对应的实体类
+#eureka:
+#  client:
+#    register-with-eureka: true
+#    fetch-registry: true
+#    service-url:
+#      defaultZone: http://eureka7001.com:7001/eureka,http://eureka7002.com:7002/eureka
+#  instance:
+#    instance-id: payment8002
+#    prefer-ip-address: true #eureka页面服务可以显式ip地址

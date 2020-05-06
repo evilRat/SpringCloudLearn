@@ -12,7 +12,13 @@
 
     <modules>
         <module>provider-payment8001</module>
+        <module>provider-payment8002</module>
+        <module>provider-zk-payment8004</module>
+        <module>provider-consul-payment8006</module>
         <module>consumer-order80</module>
+        <module>consumer-zk-order80</module>
+        <module>consumer-feign-order80</module>
+        <module>consumer-consul-order80</module>
         <module>cloud-api-commons</module>
         <module>cloud-eureka-server7001</module>
         <module>cloud-eureka-server7002</module>
