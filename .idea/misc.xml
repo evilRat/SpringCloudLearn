@@ -16,6 +16,8 @@
         <option value="$PROJECT_DIR$/provider-consul-payment8006/pom.xml" />
         <option value="$PROJECT_DIR$/consumer-consul-order80/pom.xml" />
         <option value="$PROJECT_DIR$/consumer-feign-order80/pom.xml" />
+        <option value="$PROJECT_DIR$/provider-hystrix-payment8001/pom.xml" />
+        <option value="$PROJECT_DIR$/consumer-feign-hystrix-order80/pom.xml" />
       </list>
     </option>
   </component>

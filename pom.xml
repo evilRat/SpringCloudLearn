@@ -15,6 +15,7 @@
         <module>provider-payment8002</module>
         <module>provider-zk-payment8004</module>
         <module>provider-consul-payment8006</module>
+        <module>provider-hystrix-payment8001</module>
         <module>consumer-order80</module>
         <module>consumer-zk-order80</module>
         <module>consumer-feign-order80</module>

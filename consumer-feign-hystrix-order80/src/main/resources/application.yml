@@ -1,0 +1,21 @@
+server:
+  port: 80
+
+
+eureka:
+  client:
+    fetch-registry: true
+    register-with-eureka: true
+    service-url:
+      defaultZone: http://eureka7001.com:7001/eureka,http://eureka7002.com:7002/eureka
+spring:
+  application:
+    name: order-feign-hystrix-service
+
+ribbon:
+  ReadTimeout: 3000 #建立连接后读取的超时时间 socketTimeout
+  ConnectTimeout: 3000  #建立连接超时时间 connectTimeout
+
+logging:
+  level:
+    com.evil.cloud.service.PaymentFeignService: debug  #feigin日志以什么级别监控哪个接口

@@ -144,4 +144,19 @@ Hystrix是一个用于处理分布式系统的延迟和容错的开源组件。H
 - 服务熔断：访问量过大，直接拒绝访问，然后通过服务降级返回友好提示
 - 服务限流：秒杀等高并发场景，防止流量全部进来
 
+1. 在需要熔断处理的方法加上@HystrixCommand，并注明熔断后处理的方法。
+2. 在主启动类启用熔断器@EnableCircuitBreaker
+
+
+```java
+    @HystrixCommand(fallbackMethod = "calErrorHystrixHandler")
+    public String calErrorHystrix() {
+        int i = 1/0; //报错触发服务降级
+        return "success";
+    }
+
+    public String calErrorHystrixHandler() {
+        return "hystrix";
+    }
+```
 

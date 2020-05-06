@@ -3,6 +3,7 @@ package com.evil.cloud.controller;
 import com.evil.cloud.entities.CommonResult;
 import com.evil.cloud.entities.Payment;
 import com.evil.cloud.service.PaymentService;
+import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.client.ServiceInstance;
@@ -19,24 +20,8 @@ public class PaymentController {
     @Resource
     private PaymentService paymentService;
 
-    @Resource
-    private DiscoveryClient discoveryClient;
-
     @Value("${server.port}")
     private String serverPort;
-
-    @PostMapping(value = "payment/create")
-    public CommonResult create(@RequestBody Payment payment) {
-        int result = paymentService.create(payment);
-        log.info("插入数据库结果：" + result);
-
-        if (result > 0) {
-            return new CommonResult(200, "插入成功，serverPort：" + serverPort, result);
-        } else {
-            return new CommonResult(444, "插入失败", null);
-        }
-    }
-
 
     @GetMapping(value = "payment/get/{id}")
     public CommonResult getPaymentById(@PathVariable("id") Long id) {
@@ -50,18 +35,26 @@ public class PaymentController {
         }
     }
 
-    @GetMapping("/payment/discovery")
-    public Object discovery() {
-        List<String> services = discoveryClient.getServices();
+    @GetMapping(value = "payment/getTimeout/{id}")
+    @HystrixCommand(fallbackMethod = "getPaymentByIdTimeoutHandler")
+    public CommonResult getPaymentByIdTimeout(@PathVariable("id") Long id) {
+        Payment payment = paymentService.getPaymentByIdTimeout(id);
+        log.info("查询数据库结果：" + payment);
 
-        for (String service : services) {
-            log.info("####service: " + service);
-            List<ServiceInstance> instances = discoveryClient.getInstances(service);
-            for (ServiceInstance instance : instances) {
-                log.info(instance.getServiceId() + "\t" + instance.getHost() + "\t" + instance.getPort() + "\t" + instance.getUri());
-            }
+        if (payment != null) {
+            return new CommonResult(200, "查询成功getTimeout，serverPort：" + serverPort, payment);
+        } else {
+            return new CommonResult(444, "查询失败，查询ID=" + id, null);
         }
-        return this.discoveryClient;
+    }
+
+    public CommonResult getPaymentByIdTimeoutHandler(Long id) {
+        return new CommonResult(555, "HystrixMethod，查询ID=" + id, null);
+    }
+
+    @GetMapping("payment/calErrorHystrix")
+    public CommonResult calErrorHystrix() {
+        return new CommonResult(777, paymentService.calErrorHystrix(), null);
     }
 
 }

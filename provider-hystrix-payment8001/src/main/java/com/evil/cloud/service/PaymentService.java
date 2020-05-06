@@ -9,4 +9,7 @@ public interface PaymentService {
 
     Payment getPaymentById(@Param("id") Long id);
 
+    Payment getPaymentByIdTimeout(Long id);
+
+    String calErrorHystrix();
 }
