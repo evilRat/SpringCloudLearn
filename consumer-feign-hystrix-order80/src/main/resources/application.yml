@@ -19,3 +19,7 @@ ribbon:
 logging:
   level:
     com.evil.cloud.service.PaymentFeignService: debug  #feigin日志以什么级别监控哪个接口
+
+feign:
+  hystrix:
+    enabled: true

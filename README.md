@@ -160,3 +160,154 @@ Hystrix是一个用于处理分布式系统的延迟和容错的开源组件。H
     }
 ```
 
+默认fallbackMethod，在类上加注解：@DefaultProperties(defaultFallback = "fallback-method-name")
+
+这样的话，如果没有加fallbackMethod的@HystrixCommand，就会使用这个默认的降级方法来处理。
+
+当然这里也是就近原则， 如果在方法上标注了， 还是按方法上的来。
+
+另外一个同意配置fallbackMethod的方法是：开启feign自带的hystrix，在配置中加入：
+
+```YML
+feign:
+  hystrix:
+    enabled: true
+```
+
+然后写一个类比如叫XXXFallbackService来实现我们的FeignClient-XXXService，在实现方法里写对应的降级操作。然后将这个降级service加到IOC容器，在feignClient配置fallback，指向这个类，那么对应的方法就作为feign调用失败的fallback。
+
+```java
+package com.evil.cloud.hystrix;
+
+import com.evil.cloud.entities.CommonResult;
+import com.evil.cloud.service.PaymentFeignService;
+import org.springframework.stereotype.Component;
+
+@Component
+public class PaymentHystrixService implements PaymentFeignService {
+    @Override
+    public CommonResult getPaymentById(Long id) {
+        return new CommonResult(888, "global hystrix，查询ID=" + id, null);
+    }
+
+    @Override
+    public CommonResult getPaymentByIdTimeout(Long id) {
+        return new CommonResult(888, "global hystrix，查询ID=" + id, null);
+    }
+}
+
+```
+
+```java
+package com.evil.cloud.service;
+
+import com.evil.cloud.config.FeignConfig;
+import com.evil.cloud.entities.CommonResult;
+import com.evil.cloud.entities.Payment;
+import com.evil.cloud.hystrix.PaymentHystrixService;
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.stereotype.Component;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+
+@Component
+@FeignClient(value = "PAYMENT-HYSTRIX-SERVICE", fallback = PaymentHystrixService.class)
+public interface PaymentFeignService {
+
+    @GetMapping(value = "/payment/get/{id}")
+    CommonResult getPaymentById(@PathVariable("id") Long id);
+
+    @GetMapping(value = "/payment/getTimeout/{id}")
+    CommonResult getPaymentByIdTimeout(@PathVariable("id") Long id);
+}
+
+```
+
+熔断器：配置熔断器，有默认值的
+
+```
+@HystrixCommand(fallbackMethod = "paymentCircuitBreakerFallback", commandProperties = {
+            @HystrixProperty(name = "circuitBreaker.enabled", value = "true"), //是否开启熔断器
+            @HystrixProperty(name = "circuitBreaker.requestVolumeThreshold", value = "10"), //请求次数
+            @HystrixProperty(name = "circuitBreaker.sleepWindowInMilliseconds", value = "10000"), //时间窗口期
+            @HystrixProperty(name = "circuitBreaker.errorThresholdPercentage", value = "60")    //失败率到达多少后跳闸
+            //上面的配置就是----如果10次失败率达到60%就开启熔断，10s后开始尝试让下一个请求通过（半开），如果失败了，就保持开启熔断器，等过10s再试试，如果成功了，就关闭熔断器
+    })
+```
+
+抽象类`HystrixCommandProperties`里设置了所有properties的默认值：
+```java
+public abstract class HystrixCommandProperties {
+    private static final Logger logger = LoggerFactory.getLogger(HystrixCommandProperties.class);
+    static final Integer default_metricsRollingStatisticalWindow = 10000;
+    private static final Integer default_metricsRollingStatisticalWindowBuckets = 10;
+    private static final Integer default_circuitBreakerRequestVolumeThreshold = 20;
+    private static final Integer default_circuitBreakerSleepWindowInMilliseconds = 5000;
+    private static final Integer default_circuitBreakerErrorThresholdPercentage = 50;
+    private static final Boolean default_circuitBreakerForceOpen = false;
+    static final Boolean default_circuitBreakerForceClosed = false;
+    private static final Integer default_executionTimeoutInMilliseconds = 1000;
+    private static final Boolean default_executionTimeoutEnabled = true;
+    private static final HystrixCommandProperties.ExecutionIsolationStrategy default_executionIsolationStrategy;
+    private static final Boolean default_executionIsolationThreadInterruptOnTimeout;
+    private static final Boolean default_executionIsolationThreadInterruptOnFutureCancel;
+    private static final Boolean default_metricsRollingPercentileEnabled;
+    private static final Boolean default_requestCacheEnabled;
+    private static final Integer default_fallbackIsolationSemaphoreMaxConcurrentRequests;
+    private static final Boolean default_fallbackEnabled;
+    private static final Integer default_executionIsolationSemaphoreMaxConcurrentRequests;
+    private static final Boolean default_requestLogEnabled;
+    private static final Boolean default_circuitBreakerEnabled;
+    private static final Integer default_metricsRollingPercentileWindow;
+    private static final Integer default_metricsRollingPercentileWindowBuckets;
+    private static final Integer default_metricsRollingPercentileBucketSize;
+    private static final Integer default_metricsHealthSnapshotIntervalInMilliseconds;
+    private final HystrixCommandKey key;
+    private final HystrixProperty<Integer> circuitBreakerRequestVolumeThreshold;
+    private final HystrixProperty<Integer> circuitBreakerSleepWindowInMilliseconds;
+    private final HystrixProperty<Boolean> circuitBreakerEnabled;
+    private final HystrixProperty<Integer> circuitBreakerErrorThresholdPercentage;
+    private final HystrixProperty<Boolean> circuitBreakerForceOpen;
+    private final HystrixProperty<Boolean> circuitBreakerForceClosed;
+    private final HystrixProperty<HystrixCommandProperties.ExecutionIsolationStrategy> executionIsolationStrategy;
+    private final HystrixProperty<Integer> executionTimeoutInMilliseconds;
+    private final HystrixProperty<Boolean> executionTimeoutEnabled;
+    private final HystrixProperty<String> executionIsolationThreadPoolKeyOverride;
+    private final HystrixProperty<Integer> executionIsolationSemaphoreMaxConcurrentRequests;
+    private final HystrixProperty<Integer> fallbackIsolationSemaphoreMaxConcurrentRequests;
+    private final HystrixProperty<Boolean> fallbackEnabled;
+    private final HystrixProperty<Boolean> executionIsolationThreadInterruptOnTimeout;
+    private final HystrixProperty<Boolean> executionIsolationThreadInterruptOnFutureCancel;
+    private final HystrixProperty<Integer> metricsRollingStatisticalWindowInMilliseconds;
+    private final HystrixProperty<Integer> metricsRollingStatisticalWindowBuckets;
+    private final HystrixProperty<Boolean> metricsRollingPercentileEnabled;
+    private final HystrixProperty<Integer> metricsRollingPercentileWindowInMilliseconds;
+    private final HystrixProperty<Integer> metricsRollingPercentileWindowBuckets;
+    private final HystrixProperty<Integer> metricsRollingPercentileBucketSize;
+    private final HystrixProperty<Integer> metricsHealthSnapshotIntervalInMilliseconds;
+    private final HystrixProperty<Boolean> requestLogEnabled;
+    private final HystrixProperty<Boolean> requestCacheEnabled;
+
+    static {
+        default_executionIsolationStrategy = HystrixCommandProperties.ExecutionIsolationStrategy.THREAD;
+        default_executionIsolationThreadInterruptOnTimeout = true;
+        default_executionIsolationThreadInterruptOnFutureCancel = false;
+        default_metricsRollingPercentileEnabled = true;
+        default_requestCacheEnabled = true;
+        default_fallbackIsolationSemaphoreMaxConcurrentRequests = 10;
+        default_fallbackEnabled = true;
+        default_executionIsolationSemaphoreMaxConcurrentRequests = 10;
+        default_requestLogEnabled = true;
+        default_circuitBreakerEnabled = true;
+        default_metricsRollingPercentileWindow = 60000;
+        default_metricsRollingPercentileWindowBuckets = 6;
+        default_metricsRollingPercentileBucketSize = 100;
+        default_metricsHealthSnapshotIntervalInMilliseconds = 500;
+    }
+}
+```
+
+`com.evil.cloud.service.impl.PaymentServiceImpl#paymentCircuitBreaker`为暴露的服务接口，`com.evil.cloud.service.impl.PaymentServiceImpl#paymentCircuitBreakerFallback`为fallbackMethod。我们请求id为正数时可以正常返回，如果为负数，就会抛出异常，这时候就会走fallbackMethod方法，如果我们狂刷负数，超过6次，那么就会触发熔断器打开，这时候我们在10s内修改为正数来调用，得到的还时fallbackMethod方法的返回，当时一旦超过窗口期（10s），就会触发熔断器半开，让下一个请求通过，得到正常返回，之后就会触发熔断器关闭，也就是确认服务恢复了。
+
+**这里要注意的是sleepWindowInMilliseconds，它设置的是触发短路的时间值，当该值设为5000时，则当触发circuit break后的5000毫秒内都会拒绝request，也就是5000毫秒后才会关闭circuit。默认5000。也就是说窗口期的意思是从熔断器打开到半开的时间间隔**
+

@@ -12,4 +12,6 @@ public interface PaymentService {
     Payment getPaymentByIdTimeout(Long id);
 
     String calErrorHystrix();
+
+    String paymentCircuitBreaker(Integer id);
 }

@@ -57,4 +57,11 @@ public class PaymentController {
         return new CommonResult(777, paymentService.calErrorHystrix(), null);
     }
 
+    @GetMapping("payment/circuit/{id}")
+    public String paymentCircuitBreaker(@PathVariable("id") Integer id) {
+        String result = paymentService.paymentCircuitBreaker(id);
+        log.info("********reuslt: " + result);
+        return result;
+    }
+
 }
