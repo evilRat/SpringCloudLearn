@@ -23,6 +23,7 @@
         <module>cloud-api-commons</module>
         <module>cloud-eureka-server7001</module>
         <module>cloud-eureka-server7002</module>
+        <module>consumer-order-hystrix-dashboard9001</module>
     </modules>
 
     <!-- 统一版本管理 -->

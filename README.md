@@ -311,3 +311,62 @@ public abstract class HystrixCommandProperties {
 
 **这里要注意的是sleepWindowInMilliseconds，它设置的是触发短路的时间值，当该值设为5000时，则当触发circuit break后的5000毫秒内都会拒绝request，也就是5000毫秒后才会关闭circuit。默认5000。也就是说窗口期的意思是从熔断器打开到半开的时间间隔**
 
+#### Hystrix-Dashboard
+
+新增一个module
+```java
+@SpringBootApplication
+@EnableHystrixDashboard
+public class HystrixDashboardMain9001 {
+    public static void main(String[] args) {
+        SpringApplication.run(HystrixDashboardMain9001.class, args);
+    }
+}
+```
+application.yml
+```yaml
+server:
+  port: 9001
+```
+
+被监控的模块：
+```java
+package com.evil.cloud;
+
+import com.netflix.hystrix.contrib.metrics.eventstream.HystrixMetricsStreamServlet;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.web.servlet.ServletRegistrationBean;
+import org.springframework.cloud.client.circuitbreaker.EnableCircuitBreaker;
+import org.springframework.cloud.netflix.eureka.EnableEurekaClient;
+import org.springframework.context.annotation.Bean;
+
+@SpringBootApplication
+@EnableEurekaClient
+@EnableCircuitBreaker
+public class PaymentHystirxMain8001 {
+
+    public static void main(String[] args) {
+        SpringApplication.run(PaymentHystirxMain8001.class, args);
+    }
+
+    /**
+     * 此配置是为了服务监控，与服务容错本身无关，springcloud升级后的bug
+     * ServletRegistrationBean因为springboot的默认路径不是“/hystrix.stream”，所以要加下面的配置
+     * @return
+     */
+    @Bean
+    public ServletRegistrationBean getServlet() {
+        HystrixMetricsStreamServlet streamServlet = new HystrixMetricsStreamServlet();
+        ServletRegistrationBean registrationBean = new ServletRegistrationBean(streamServlet);
+        registrationBean.setLoadOnStartup(1);
+        registrationBean.addUrlMappings("/hystrix.stream");
+        registrationBean.setName("HystrixMetricsStreamServlet");
+        return registrationBean;
+    }
+
+}
+```
+此外，被监控的模块还需要有web和actuator的依赖。
+
+启动后打开`http://localhost:9001/hystrix` ，填入监控流`http://localhost:8001/hystrix.stream` ，也就是我们上面bean里配置的Mapping，点击`Monitor Stream`就可以监控我们的接口了，可以看到成功、失败数目和熔断器状态等。
