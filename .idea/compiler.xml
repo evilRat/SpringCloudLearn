@@ -19,6 +19,7 @@
         <module name="provider-payment8001" />
         <module name="provider-hystrix-payment8001" />
         <module name="consumer-feign-hystrix-order80" />
+        <module name="cloud-gateway-gateway9527" />
         <module name="consumer-consul-order80" />
         <module name="provider-zk-payment8004" />
       </profile>

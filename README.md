@@ -370,3 +370,334 @@ public class PaymentHystirxMain8001 {
 此外，被监控的模块还需要有web和actuator的依赖。
 
 启动后打开`http://localhost:9001/hystrix` ，填入监控流`http://localhost:8001/hystrix.stream` ，也就是我们上面bean里配置的Mapping，点击`Monitor Stream`就可以监控我们的接口了，可以看到成功、失败数目和熔断器状态等。
+
+### Gateway服务网关
+
+SpringCloud Gateway使用的是Webflux中的reactor-netty响应式编程组件，底层使用了Netty通讯框架。
+
+Gateway是springcloud的亲儿子，基于**异步非阻塞模型**，性能很强。
+
+特点：
+- 动态路由
+- 断言和过滤器
+- 集成Hystrix断路器
+- 继承了SpringCloud的服务发现功能
+- 请求限流功能
+- 支持路径重写
+
+Zuul1.x是基于阻塞I/O的Api Gateway，Servlet2.5阻塞架构，不支持任何长连接，Zuul和nginx比较像，每次IO都是从工作线程中选择一个执行，请求线程被阻塞到工作线程完成，但是nginx是C++编写，Zuul是java实现，所以zuul比ngninx性能会差一些。
+Zuul2.x是基于netty，支持非阻塞和长连接，但是springcloud还没有整合。
+
+Servlet生命周期：
+1. servlet由servlet container管理
+2. container启动后构造servlet并调用servlet init()方法进行初始化
+3. container运行时接受请求，并为每一个请求分配一个线程，然后调用service()方法
+4. container关闭时调用servlet的destory()方法销毁servlet
+
+
+
+Webflux，spring5推出。核心是基于Reactor相关api，相对传统web框架，它可以运行在Netty、Undertow以及支持servlet3.1的容器上，非阻塞+函数式编程，必须使用java8
+
+Gateway三大核心概念
+
+- Route（路由）： 路由是构建网关的基本模块，它由ID，目标URI，一系列的断言和过滤器组成，如果断言为true则匹配该路由。
+- Predicate（断言）：参考的是Java8的java.util.function.Predicate，开发人员可以匹配HTTP请求中的所有内容，如请求头或请求参数，如果请求头与断言相匹配则进行路由。
+- Filter（过滤）：Spring框架中GatewayFilter的实例，使用过滤器，可以在请求被路由之前或者之后对请求进行修改。
+
+Web请求通过一些匹配条件，定位到真正的服务节点。并在这个转发过程的前后进行一些精细化的控制。predicate就是我们的条件，filter就是一个无所不能的拦截器，再加上目标uri，就可以实现一个具体的路由了。
+
+Gateway工作流程：
+客户端向springcloud gateway发送请求，然后再gateway handler mapping中找到与请求相匹配的路由，将其转发到gateway web handler。handler再通过指定的过滤链将请求发送到我们实际的服务执行业务逻辑，然后返回。
+
+过滤器可以再业务逻辑之前或者之后完成一些工作。比如pre可以做参数校验、权限校验、流量监控、日志输出、协议转换等；post可以做响应内容、响应头的修改，日志的输出，流量监控等。
+
+
+**gateway组件不能再引入web依赖了，gateway和web组件时互斥的**
+```txt
+**********************************************************
+
+Spring MVC found on classpath, which is incompatible with Spring Cloud Gateway at this time. Please remove spring-boot-starter-web dependency.
+
+**********************************************************
+```
+
+gateway配置文件：
+
+```yaml
+server:
+  port: 9527
+
+spring:
+  application:
+    name: cloud-gateway
+  cloud:
+    gateway:
+      routes:
+        - id: payment_routh #路由的id，要唯一，做好和服务名相关联
+          uri: http://localhost:8001 #匹配后提供服务的路由地址
+          predicates:
+            - Path=/payment/get/**  #断言，路径相匹配将进行路由
+        - id: payment_routh2
+          uri: http://localhost:8001
+          predicates:
+            - Path=/payment/create/**
+
+eureka:
+  instance:
+    hostname: cloud-gateway-service
+  client:
+    service-url:
+      register-with-eureka: true
+      fetch-registry: true
+      defaultZone: http://eureka7001.com:7001/eureka,http://eureka7002.com/eureka
+```
+
+启动gateway后就可以通过gateway访问我们的服务了
+
+通过`http://localhost:9527/payment/get/1` 就可以访问到我们的payment服务了。
+
+gateway配置路由的方式有两种，上面是第一种，通过yml配置，下面是另一种，通过编码来配置
+
+```java
+package com.evil.cloud.config;
+
+import org.springframework.cloud.gateway.route.RouteLocator;
+import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+/**
+ * 编码配置路由
+ * 通过http://localhost:9527/guonei，访问百度国内新闻
+ */
+@Configuration
+public class GatewayConfig {
+    @Bean
+    public RouteLocator customRouteLocator(RouteLocatorBuilder routeLocatorBuilder) {
+        RouteLocatorBuilder.Builder routes = routeLocatorBuilder.routes();
+
+        routes.route("path_route_baidu_news_guonei", r -> r.path("/guonei").uri("http://news.baidu.com/guonei")).build();
+
+        return routes.build();
+    }
+}
+```
+
+#### gateway动态路由
+
+yml配置通过eureka服务名调用
+
+```yaml
+server:
+  port: 9527
+
+spring:
+  application:
+    name: cloud-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true #开启从注册中心动态创建路由的功能，利用微服务名进行路由
+      routes:
+        - id: payment_routh
+          uri: lb://payment-service #通过服务名路由,lb://serviceName是springcloud gateway在微服务中自动为我们创建的负载均衡
+          predicates:
+            - Path=/payment/get/**
+        - id: payment_routh2
+          uri: lb://payment-service
+          predicates:
+            - Path=/payment/create/**
+
+#  cloud:
+#    gateway:
+#      routes:
+#        - id: payment_routh #路由的id，要唯一，做好和服务名相关联
+#          uri: http://localhost:8001 #匹配后提供服务的路由地址
+#          predicates:
+#            - Path=/payment/get/**  #断言，路径相匹配将进行路由
+#        - id: payment_routh2
+#          uri: http://localhost:8001
+#          predicates:
+#            - Path=/payment/create/**
+
+eureka:
+  instance:
+    hostname: cloud-gateway-service
+  client:
+    service-url:
+      register-with-eureka: true
+      fetch-registry: true
+      defaultZone: http://eureka7001.com:7001/eureka,http://eureka7002.com/eureka
+```
+
+`lb://service-name` 是gateway集成了eureka和ribbon，通过eureka服务名调用服务，通过ribbon来做负载均衡。
+
+#### predicate断言/谓语
+
+启动gateway的时候会打印下面这样的日志：
+
+```text
+2020-05-17 20:15:15.691  INFO 24084 --- [  restartedMain] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [After]
+2020-05-17 20:15:15.691  INFO 24084 --- [  restartedMain] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [Before]
+2020-05-17 20:15:15.691  INFO 24084 --- [  restartedMain] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [Between]
+2020-05-17 20:15:15.691  INFO 24084 --- [  restartedMain] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [Cookie]
+2020-05-17 20:15:15.691  INFO 24084 --- [  restartedMain] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [Header]
+2020-05-17 20:15:15.691  INFO 24084 --- [  restartedMain] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [Host]
+2020-05-17 20:15:15.691  INFO 24084 --- [  restartedMain] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [Method]
+2020-05-17 20:15:15.691  INFO 24084 --- [  restartedMain] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [Path]
+2020-05-17 20:15:15.691  INFO 24084 --- [  restartedMain] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [Query]
+2020-05-17 20:15:15.692  INFO 24084 --- [  restartedMain] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [ReadBodyPredicateFactory]
+2020-05-17 20:15:15.692  INFO 24084 --- [  restartedMain] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [RemoteAddr]
+2020-05-17 20:15:15.692  INFO 24084 --- [  restartedMain] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [Weight]
+2020-05-17 20:15:15.692  INFO 24084 --- [  restartedMain] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [CloudFoundryRouteService]
+```
+
+springcloud gateway将路由匹配作为spring webflux handlermapping基础架构的一部分。
+springcloud gateway包括许多内置的route predicate工厂，这些predicate都与http请求的不同属性匹配。多个route predicate工厂可以进行组合。
+springcloud gateway创建route对象时，使用RoutePredicateFactory创建Predicate对象，Predicate对象可以赋值给Route，Spring Cloud Gateway包含许多内置的Route Predicate Factories，所有这些谓词都匹配Http请求的不同属性，多个谓语可以组合，并通过逻辑and
+
+
+1. AfterRoutePredicateFactory: 时间类型的Predicate （AfterRoutePredicateFactory BeforeRoutePredicateFactory BetweenRoutePredicateFactory），当只有满足特定时间要求的请求会进入到此predicate中，并交由router处理。
+```yaml
+spring:
+  cloud:
+    gateway:
+      routes:
+      - id: after_route
+        uri: http://example.org
+        predicates:
+        - After=2017-01-20T17:42:47.789-07:00[America/Denver]
+```
+
+predicates：
+- After=2017-01-20T17:42:47.789-07:00[America/Denver] 会被解析成PredicateDefinition对象 （name =After ，args= 2017-01-20T17:42:47.789-07:00[America/Denver]）。predicates的配置，遵循的约定大于配置的思想，这个After就是指定了它的处理类为AfterRoutePredicateFactory，同理，其他类型的predicate也遵循这个规则。
+
+当请求的时间在这个配置的时间之后，请求会被路由到 http://example.org
+启动工程，在浏览器上访问 http://localhost:8081/，会显示 http://example.org 返回的结果，此时gateway路由到了配置的uri。如果我们将配置的时间设置到当前时之后，浏览器会显示404，此时证明没有路由到配置的uri。
+
+2. CookieRoutePredicateFactory: cookie类型的CookieRoutePredicateFactory，指定的cookie满足正则匹配，才会进入此router。
+CookieRoute PredicateFactory需要2个参数，一个是cookie名字，另一个是值也可以是正则表达式。它用于匹配请求中，带有该名称的cookie和cookie匹配正则表达式的请求。
+```yaml
+spring:
+  cloud:
+    gateway:
+      routes:
+      - id: cookie_route
+        uri: http://example.org
+        predicates:
+        - Cookie=name, forezp
+```
+在上面的配置中，请求带有cookie名为name, cookie值为forezp 的请求将都会转发到uri为 http://example.org 的地址上。
+使用curl命令进行请求，在请求中带上 cookie，会返回正确的结果，否则，请求报404错误。
+
+```shell script
+$ curl -H 'Cookie:name=forezp' localhost:8081
+```
+
+3. HeaderRoutePredicateFactory: HeaderRoutePredicateFactory需要2个参数，一个是header名，另外一个header值，该值可以是一个正则表达式。当此断言匹配了请求的header名和值时，断言通过，进入到router的规则中去。
+```yaml
+spring:
+  cloud:
+    gateway:
+      routes:
+      - id: header_route
+        uri: http://example.org
+        predicates:
+        - Header=X-Request-Id, \d+
+```
+在上面的配置中，当请求的Header中有X-Request-Id的header名，且header值为数字时，请求会被路由到配置的 uri. 使用curl执行以下命令:
+```shell script
+$ curl -H 'X-Request-Id:1' localhost:8081
+```
+执行命令后，会正确的返回请求结果。如果在请求中没有带上X-Request-Id的header名，并且值不为数字时，请求就会报404，路由没有被正确转发。
+
+4. HostRoutePredicateFactory: HostRoutePredicateFactory需要一个参数即hostname，它可以使用. * 等去匹配host。这个参数会匹配请求头中的host的值，一致，则请求正确转发。
+```yaml
+spring:
+  cloud:
+    gateway:
+      routes:
+      - id: host_route
+        uri: http://example.org
+        predicates:
+        - Host=**.somehost.org
+```
+
+在上面的配置中，请求头中含有Host为somehost.org的请求将会被路由转发转发到配置的uri。 启动工程，执行以下的curl命令，请求会返回正确的请求结果：
+
+```shell script
+curl -H 'Host:www.somehost.org' localhost:8081
+
+```
+
+5. MethodRoutePredicateFactory: MethodRoutePredicateFactory 需要一个参数，即请求的类型。比如GET类型的请求都转发到此路由。
+```yaml
+spring:
+  cloud:
+    gateway:
+      routes:
+      - id: method_route
+        uri: http://example.org
+        predicates:
+        - Method=GET
+```
+
+在上面的配置中，所有的GET类型的请求都会路由转发到配置的uri。使用 curl命令模拟 get类型的请求，会得到正确的返回结果。
+
+```shell script
+$ curl localhost:8081 #使用 curl命令模拟 post请求，则返回404结果。
+$ curl -X POST localhost:8081 #
+```
+
+6. PathRoutePredicateFactory: PathRoutePredicateFactory 需要一个参数: 一个spel表达式，应用匹配路径。
+```yaml
+spring:
+  cloud:
+    gateway:
+      routes:
+      - id: host_route
+        uri: http://example.org
+        predicates:
+        - Path=/foo/{segment}
+```
+
+在上面的配置中，所有的请求路径满足/foo/{segment}的请求将会匹配并被路由，比如/foo/1 、/foo/bar的请求，将会命中匹配，并成功转发。
+使用curl模拟一个请求localhost:8081/foo/dew，执行之后会返回正确的请求结果。
+```shell script
+$ curl localhost:8081/foo/dew
+```
+
+7. QueryRoutePredicateFactory: QueryRoutePredicateFactory 需要2个参数:一个参数名和一个参数值的正则表达式。
+```yaml
+spring:
+  cloud:
+    gateway:
+      routes:
+      - id: query_route
+        uri: http://example.org
+        predicates:
+        - Query=foo, ba.
+```
+
+在上面的配置文件中，配置了请求中含有参数foo，并且foo的值匹配ba.，则请求命中路由，比如一个请求中含有参数名为foo，值的为bar，能够被正确路由转发。
+模拟请求的命令如下：
+```shell script
+$ curl localhost:8081?foo=bar
+```
+
+QueryRoutePredicateFactory也可以只填一个参数，填一个参数时，则只匹配参数名，即请求的参数中含有配置的参数名，则命中路由。
+比如以下的配置中，配置了请求参数中含有参数名为foo 的参数将会被请求转发到uri为 http://example.org
+
+```yaml
+spring:
+  cloud:
+    gateway:
+      routes:
+      - id: query_route
+        uri: http://example.org
+        predicates:
+        - Query=foo
+```
+
+
