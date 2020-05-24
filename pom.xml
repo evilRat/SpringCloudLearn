@@ -26,6 +26,8 @@
         <module>consumer-order-hystrix-dashboard9001</module>
         <module>consumer-feign-hystrix-order80</module>
         <module>cloud-gateway-gateway9527</module>
+        <module>cloud-config-center3344</module>
+        <module>cloud-config-client-3355</module>
     </modules>
 
     <!-- 统一版本管理 -->

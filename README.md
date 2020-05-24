@@ -701,3 +701,154 @@ spring:
 ```
 
 
+
+#### Filter过滤器
+
+spring cloud gateway的Filter：Predict决定了请求由哪一个路由处理，在路由处理之前，需要经过“pre”类型的过滤器处理，处理返回响应之后，可以由“post”类型的过滤器处理。
+
+- pre
+- post
+
+客户端请求各个服务的Api时，每个服务都需要做相同的事情，比如鉴权、限流、日志输出等。
+
+Spring Cloud Gateway同zuul类似，有“pre”和“post”两种方式的filter。客户端的请求先经过“pre”类型的filter，然后将请求转发到具体的业务服务，比如上图中的user-service，收到业务服务的响应之后，再经过“post”类型的filter处理，最后返回响应到客户端。
+
+Spring Cloud Gateway根据作用范围划分为GatewayFilter和GlobalFilter，二者区别如下：
+
+- GatewayFilter : 需要通过spring.cloud.routes.filters 配置在具体路由下，只作用在当前路由上或通过spring.cloud.default-filters配置在全局，作用在所有路由上
+- GlobalFilter : 全局过滤器，不需要在配置文件中配置，作用在所有的路由上，最终通过GatewayFilterAdapter包装成GatewayFilterChain可识别的过滤器，它为请求业务以及路由的URI转换为真实业务服务的请求地址的核心过滤器，不需要配置，系统初始化时加载，并作用在每个路由上。
+
+**除了使用springcloud gateway内置的众多Filter，还可以自定义Filter，需要`implements GlobalFilter, Ordered`**
+
+```java
+package com.evil.cloud.filter;
+
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang.StringUtils;
+import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.core.Ordered;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Component;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
+
+@Component
+@Slf4j
+public class MyLogGatewayFilter implements GlobalFilter, Ordered {
+
+    @Override
+    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        String uname = exchange.getRequest().getQueryParams().getFirst("uname");
+        if (StringUtils.isBlank(uname)) {
+            log.info("***********用户名为空，非法用户****************");
+            exchange.getResponse().setStatusCode(HttpStatus.NOT_ACCEPTABLE);
+            return exchange.getResponse().setComplete();
+        }
+        return chain.filter(exchange);
+    }
+
+    @Override
+    public int getOrder() {
+        return 0;
+    }
+}
+
+```
+
+这里exchange就是我们的调用，可以获取到request和response。我们可以写自己的逻辑，通过的话就是chain.filter(exchange)，将调用传给下一个filter。重写Ordered是给Filter排序，优先级。
+
+
+### springcloud config 配置中心
+
+解决分布式系统的配置问题。
+集中化的外部配置支持。
+
+springcloud config分为服务端和客户端两部分
+
+- 服务端： 分布式配置中心，它是一个独立的微服务应用，用来连接配置服务器并为客户端提供配置信息，加密/解密信息等访问接口
+- 客户端： 通过指定的配置中心来管理应用资源，以及业务相关的配置内容，并在启动的时候从配置中心获取和加载配置信息。
+
+**配置服务器默认采用git仓库来存储信息，这样有助于对环境配置进行版本管理。**
+
+配置读取规则：
+
+- /{label}/{application}-{profile}.yml
+- /{application}-{profile}.yml
+- /{application}/{profile}/{label}
+
+label: 分支
+name: 服务名
+profile： 环境
+
+
+#### springcloud config client
+
+application.yml是用户级的资源配置项
+bootstrap.yml是系统级的，优先级更高
+
+springcboot会创建一个`Bootstrap Context`，作为Spring应用的`Application Context`的父上下文，初始化的时候，`Bootstrap Context`负责从外部加载配置属性并解析配置。这两个上下文共享一个从外部获取的`Environment`。
+
+`Bootstrap`属性有高优先级，默认情况下它不会被本地配置覆盖。`Bootstrap context`和`Application Context`有着不同的约定，所以新增了一个`bootstrap.yml`文件，保证`Bootstrap Context`和`Application Context`配置的分离。
+
+要将Client模块下的`application.yml`文件改为`bootstrap.yml`，因为`bootstrap.yml`是比`application.yml`先加载的。
+
+**config-center可以实时从git获取最新的配置，但是config-client不会实时获取最新的配置。client需要重启才能得到最新的配置。**
+
+#### config-client配置动态刷新
+
+1. client需要引入监控依赖：
+
+```xml
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+```
+
+2. 暴露监控端点
+
+```yaml
+#暴露监控端点
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+```
+
+3. 需要读取配置的component需要加入注解`@RefreshScope`
+
+```java
+package com.evil.cloud.controller;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.context.config.annotation.RefreshScope;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RefreshScope
+public class ConfigClientController {
+    @Value("${config.info}")
+    private String configInfo;
+
+    @GetMapping(value = "configInfo")
+    public String getConfigInfo() {
+        return configInfo;
+    }
+
+}
+```
+
+4. 当配置发生变化后，config-server可以立即获取最新的配置，config-client通过前面暴露的监控端点，通过一个rest接口，刷新配置信息：
+
+```shell script
+curl -X POST http://localhost:3355/actuator/refresh
+```
+
+之后的配置就和config-server的一样了。
+
+但是配置刷新如果集群中每个服务都需要一个post请求才行，也是需要大量工作的。
+
+后面的消息总线会有帮助的！

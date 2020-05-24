@@ -1,0 +1,20 @@
+server:
+  port: 3344
+
+spring:
+  application:
+    name: cloud-config-center
+  cloud:
+    config:
+      server:
+        git:
+          uri: https://gitee.com/misa_739/springcloudLearn-config.git #git仓库
+          #uri: git@github.com:zzyybs/springcloud-config.git
+          search-path:  #搜索目录
+            - springcloudLearn-config
+      label: master #读取分支
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:7001/eureka
