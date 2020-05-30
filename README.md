@@ -937,3 +937,46 @@ management:
 
 5. 测试
 
+启动eureka-server、config-server、config-client
+
+修改配置，发送post请求到config-server，可以刷新所有config-client的配置。
+
+```shell script
+curl -X POST "http://localhost:3344/actuator/bus-refresh"
+```
+
+所有服务的配置都被刷新。
+
+登录rabbitMQ控制台，在Exchanges标签页，可以看到springCloudBus的topic。
+
+#### 实现差异化更新配置
+
+可以具体指定某一个实例生效而不是全部。
+
+**rest接口：**
+```text
+http://localhost:配置中心端口号/actuator/bus-refresh/{destination}
+```
+
+这样/bus/refresh请求不再通知所有的服务实例，而是由configServer通过destination参数转发给特定的实例。
+
+
+我们上面启动了3355和3366两个configClient。
+
+发送Post请求：
+```text
+curl -X POST "http://localhost:3344/actuator/bus-refresh/config-client:3355"
+```
+
+这个destination是由我们配置的应用名和端口决定的：
+
+```yaml
+server:
+  port: 3355
+
+spring:
+  application:
+    name: config-client
+```
+
+3355是更新的，3366不会被更新。
