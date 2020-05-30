@@ -1,0 +1,30 @@
+server:
+  port: 3366
+
+spring:
+  application:
+    name: config-client-3366
+  cloud:
+    config:
+      label: master
+      name: config
+      profile: dev
+      uri: http://localhost:3344
+  #增加rabbitmq配置，用于bus通知修改配置
+  rabbitmq:
+    host: localhost
+    port: 5672
+    password: guest
+    username: guest
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:7001/eureka
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"

@@ -10,6 +10,14 @@ spring:
       name: config  #配置文件名
       profile: dev  #profile    将会读取http://localhost:3344/master/config-dev.yml
       uri: http://localhost:3344  #配置中心地址
+  #增加rabbitmq配置
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+
 
 eureka:
   client:

@@ -852,3 +852,88 @@ curl -X POST http://localhost:3355/actuator/refresh
 但是配置刷新如果集群中每个服务都需要一个post请求才行，也是需要大量工作的。
 
 后面的消息总线会有帮助的！
+
+
+### springcloud bus消息总线
+
+如果想自动完成上面的配置更新，需要引入springcloud bus消息总线，Bus支持两种消息代理：RabbitMQ和Kafka
+
+通过消息中间件来发送我们上面刷新配置的post请求，所有的消费者通过消息来更新自己的配置
+
+在微服务架构中，通常会使用轻量级的消息代理来构建一个共用的消息主题，并让系统中所有的微服务实例都连接上来，由于该主题中产生的消息会被所有的实例监听和消费，所以称它为消息总线。在总线上的各个实例，都可以方便的广播一些需要让其他连接在该主题上的是都都知道的消息。
+
+**基本原理：**
+configClient实例都监听MQ中的同一个topic（默认是SpringCloudBus），当一个服务刷新数据的时候，它会把这个信息放入到Topic中，这样其他监听同一个topic的服务就能得到通知，然后去跟更新自身的配置。
+
+#### 两种思路：
+
+1. 利用消息总线触发一个configClient的bus/refersh，进而刷新所有客户端的配置
+2. 利用消息总线触发一个configServer的bus/refersh，进而刷新所有客户端的配置
+
+一般选择第第二种思路。
+思路一不合适的理由：
+1. 破坏了微服务的职责单一性，一个服务应该是一个单纯的业务模块，不应该承担刷新配置的责任。
+2. 破坏了微服务各个节点的对等性。
+3. 有一定局限性，在微服务迁移时，他的地址会发生变化，如果此时要做到自动刷新，就会增加更多的修改。
+
+#### 实现方法
+
+选用第二种思路。
+
+1. 修改configServer，引入bus-rabbitMQ支持
+
+```xml
+        <dependency>
+            <!-- 添加消息总线RabbitMQ支持 -->
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-bus-amqp</artifactId>
+        </dependency>
+```
+
+2. 修改configServer配置，增加rabbit配置并暴露用于配置刷新的端点
+
+```yaml
+  ##rabbitmq配置
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+##暴露bus刷新配置的端点
+management:
+  endpoints:
+    web:
+      exposure:
+        include: 'bus-refresh'
+```
+
+3. configClient引入bus-rabbitMQ的依赖
+
+```xml
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-bus-amqp</artifactId>
+        </dependency>
+```
+
+4. configClient增加rabbit配置，暴露端点
+
+```yaml
+  #增加rabbitmq配置
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+#暴露监控端点
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"  #之前以前全部暴露了
+```
+
+5. 测试
+
