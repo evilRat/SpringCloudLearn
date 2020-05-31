@@ -980,3 +980,239 @@ spring:
 ```
 
 3355是更新的，3366不会被更新。
+
+
+### spring cloud stream
+
+屏蔽底层消息中间件的差异，减低切换成本，同意消息的编程模型。
+
+springcloud stream是一个构建消息驱动微服务的框架。
+
+应用程序通过inputs或者outputs来与springcloud stream中的binder对象交互。
+通过我们的配置来binding（绑定），而springcloud stream的binder对象负责与消息中间件交互。
+所以我们只需要搞清楚如果与springcloud stream交互就可以方便使用消息驱动的开发模式。
+
+通过使用Spring Integration来连接消息代理中间件以实现消息驱动。
+SpringCloud Stream为一些供应商的消息中间件产品提供了个性化的自动配置实现，引用了发布-订阅、消费组、分区的核心概念。
+
+目前仅支持RabbitMQ、Kafka。
+
+通过定义绑定器（binder）作为中间层，完美实现应用程序与消息中间件细节之间的隔离。通过向应用程序暴露同意的channel通道，使得应用程序不需要再考虑各种不同消息中间件的实现。
+
+**Binder：**
+- input 消费者
+- output 生产者
+
+**Stream中的消息通信方式遵循了发布-订阅模式。** 根据topic主题进行广播： RabbitMQ中的Exchange，Kafka中的Topic。 
+
+#### springcloud stream流程
+
+- Binder： 连接消息中间件，屏蔽差异
+- Channel： 通道，是队列Queue的一种抽象，在消息通信系统中就是实现存储和转发的媒介，通过Channel对队列进行配置。
+- Source和Sink： 简单的可以理解为参照对象是SpringCloudStream自身，从Stream发布消息就是输出，接受消息就是输入。
+
+常用注解：
+- @Input: 输入通道，通过该输入通道接受到的消息进入应用程序。
+- @Output： 输出通道，发布的消息将通过该通道离开应用程序。
+- @StreamListener： 监听队列，用于消费者队列的消息接受。
+- @EnableBinding: 指channel和Exchange绑定在一起。
+
+
+#### 使用方法
+
+**生产者**
+
+1. 创建生产者，引入stream-rabbit依赖
+
+```xml
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-stream-rabbit</artifactId>
+        </dependency>
+```
+
+2. 生产者配置
+
+这里就是声明一个defaultRabbit配置，然后再后面的bindings里引用
+
+```yaml
+server:
+  port: 8801
+
+spring:
+  application:
+    name: cloud-stream-provider
+  cloud:
+    stream:
+      binders:  #这里配置需要绑定的rabbitmq的服务信息
+        defaultRabbit:  #表示定义的名称，用于与binding整合
+          type: rabbit  #消息组件类型
+          environment:  # 设置rabbitmq的相关环境
+            spring:
+              rabbitmq:
+                host: 10.10.10.185
+                port: 5672
+                username: guest
+                password: guest
+      bindings: #服务的整合处理
+        output: #一个通道的名字
+          destination: studyExchange  #表示要使用的Exchange的名称
+          content-type: application/json  #设置消息类型，json，文本则要设置为text/plain
+          binder: defaultRabbit #设置要绑定的消息服务的具体设置
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:7001/eureka
+  instance:
+    lease-renewal-interval-in-seconds: 2 #设置心跳的时间间隔（默认30s）
+    lease-expiration-duration-in-seconds: 5 #超过5s（默认90s）
+    instance-id: send-8801.com  #在信息列表中显示主机名称
+    prefer-ip-address: true #访问的路径变为IP地址
+
+```
+
+3. 生产者业务逻辑
+
+通过@EnableBinding(Source.class)声明这是一个消息生产者
+
+```java
+package com.evil.cloud.service.impl;
+
+import com.evil.cloud.service.IMessageProvider;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cloud.stream.annotation.EnableBinding;
+import org.springframework.cloud.stream.messaging.Source;
+import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.support.MessageBuilder;
+
+import javax.annotation.Resource;
+import java.util.UUID;
+
+@EnableBinding(Source.class)
+@Slf4j
+public class MessageProviderImpl implements IMessageProvider {
+
+    //注入消息发送管道
+    @Resource
+    private MessageChannel output;
+
+    @Override
+    public String send() {
+        String id = UUID.randomUUID().toString();
+        output.send(MessageBuilder.withPayload(id).build());
+        log.info("************发送消息：" + id);
+        return id;
+    }
+}
+```
+
+4. 提供接口来触发消息的发送
+
+```java
+package com.evil.cloud.controller;
+
+import com.evil.cloud.service.IMessageProvider;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import javax.annotation.Resource;
+
+@RestController
+public class SendMessageController {
+
+    @Resource
+    private IMessageProvider messageProvider;
+
+    @GetMapping(value = "/sendMessage")
+    public String sendMessage() {
+        return messageProvider.send();
+    }
+
+}
+
+```
+
+
+**消费者**
+
+1. 创建生产者，引入stream-rabbit依赖
+
+```xml
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-stream-rabbit</artifactId>
+        </dependency>
+```
+
+2. 生产者配置
+
+这里就是声明一个defaultRabbit配置，然后再后面的bindings里引用，注意这里是input，不是output了。。input对应消费者，output对应生产者
+
+```yaml
+server:
+  port: 8802
+
+spring:
+  application:
+    name: cloud-stream-consumer
+  cloud:
+    stream:
+      binders:  #这里配置需要绑定的rabbitmq的服务信息
+        defaultRabbit:  #表示定义的名称，用于与binding整合
+          type: rabbit  #消息组件类型
+          environment:  # 设置rabbitmq的相关环境
+            spring:
+              rabbitmq:
+                host: 10.10.10.185
+                port: 5672
+                username: guest
+                password: guest
+      bindings: #服务的整合处理
+        input:
+          destination: studyExchange  #表示要使用的Exchange的名称
+          content-type: application/json  #设置消息类型，json，文本则要设置为text/plain
+          binder: defaultRabbit #设置要绑定的消息服务的具体设置
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:7001/eureka
+  instance:
+    lease-renewal-interval-in-seconds: 2 #设置心跳的时间间隔（默认30s）
+    lease-expiration-duration-in-seconds: 5 #超过5s（默认90s）
+    instance-id: receive-8802.com  #在信息列表中显示主机名称
+    prefer-ip-address: true #访问的路径变为IP地址
+```
+
+3. 生产者业务逻辑
+
+通过@EnableBinding(Sink.class)声明这是一个消息消费者
+
+```java
+package com.evil.cloud.controller;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.stream.annotation.EnableBinding;
+import org.springframework.cloud.stream.annotation.StreamListener;
+import org.springframework.cloud.stream.messaging.Sink;
+import org.springframework.messaging.Message;
+import org.springframework.stereotype.Component;
+
+@Component
+@EnableBinding(Sink.class)
+@Slf4j
+public class ReceiveMessageLinstenerController {
+
+    @Value(("${server.port}"))
+    private String serverPort;
+
+    @StreamListener(Sink.INPUT)
+    public void input(Message<String> message) {
+      log.info("serverPort: " + serverPort + "，收到消息：" + message.getPayload());
+    }
+
+
+}
+
+```
+
