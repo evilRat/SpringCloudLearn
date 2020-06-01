@@ -1216,3 +1216,47 @@ public class ReceiveMessageLinstenerController {
 
 ```
 
+#### 集群重复消费问题
+
+如果我们继续创建一个和8802一样的8803消费者，8801发出的消息，8802和8803都会消费，群在重复消费的问题。
+
+通过rabbitMQ监控台可以看到studyExchange下有两个分组。这就是导致重复消费的原因，组ID不一样，导致被rabbitMQ认为是不同的组，就都会去消费生产者发出的全部消息。
+
+**解决方案：**
+
+在rabbitMQ自定义分组，然后多个消费者配置为同一个组，即可解决重复消费问题。
+
+修改application.yml配置文件：
+
+通过`group: test`配置分组为test，当多个服务都在一个分组时，它们作为消费者时竞争关系的，一条消息只会被一个消费者所消费。当我们把8802和8803都配置为`test`分组时，一条消息就只能被二者之一消费了。
+
+```yaml
+server:
+  port: 8802
+
+spring:
+  application:
+    name: cloud-stream-consumer
+  cloud:
+    stream:
+      binders:  #这里配置需要绑定的rabbitmq的服务信息
+        defaultRabbit:  #表示定义的名称，用于与binding整合
+          type: rabbit  #消息组件类型
+          environment:  # 设置rabbitmq的相关环境
+            spring:
+              rabbitmq:
+                host: 10.10.10.185
+                port: 5672
+                username: guest
+                password: guest
+      bindings: #服务的整合处理
+        input:
+          destination: studyExchange  #表示要使用的Exchange的名称
+          content-type: application/json  #设置消息类型，json，文本则要设置为text/plain
+          binder: defaultRabbit #设置要绑定的消息服务的具体设置
+          group: test   #分组
+```
+
+#### SpringCloud stream消息持久化
+
+如果我们给一个消费者自定义了分组group，当消费者启动后，会自动去mq拉取未消费的消息。但是如果我们没有指定自定义分组group，它将不会去拉去未消费的消息，导致消息丢失。所以我们要设置group参数配置。

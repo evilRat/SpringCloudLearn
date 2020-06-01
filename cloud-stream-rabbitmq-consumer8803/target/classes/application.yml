@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: cloud-stream-consumer
+    name: cloud-stream-provider
   cloud:
     stream:
       binders:  #这里配置需要绑定的rabbitmq的服务信息
@@ -21,7 +21,6 @@ spring:
           destination: studyExchange  #表示要使用的Exchange的名称
           content-type: application/json  #设置消息类型，json，文本则要设置为text/plain
           binder: defaultRabbit #设置要绑定的消息服务的具体设置
-          group: test
 eureka:
   client:
     service-url:

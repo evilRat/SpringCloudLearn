@@ -20,6 +20,7 @@
         <option value="$PROJECT_DIR$/consumer-feign-hystrix-order80/pom.xml" />
         <option value="$PROJECT_DIR$/cloud-gateway-gateway9527/pom.xml" />
         <option value="$PROJECT_DIR$/cloud-config-client-3366/pom.xml" />
+        <option value="$PROJECT_DIR$/cloud-stream-rabbitmq-consumer8803/pom.xml" />
       </list>
     </option>
   </component>
