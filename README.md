@@ -1,19 +1,37 @@
 # SpringCloudLearn
 SpringCloud学习项目
 
-## 目录
-[TOC]
-### ribbon 服务调用 负载均衡
-### Feign
-### Hystrix 服务降级
-### Gateway服务网关
-### springcloud config 配置中心
-### springcloud bus消息总线
-### spring cloud stream
-### springcloud Sleuth 分布式请求链路跟踪
+- [SpringCloudLearn](#springcloudlearn)
+  * [要点](#--)
+    + [ribbon服务调用负载均衡](#ribbon--------)
+      - [1.ribbon的核心是接口IRule](#1ribbon------irule)
+      - [2.手写LB算法](#2--lb--)
+    + [Feign/OpenFeign服务调用](#feign-openfeign----)
+    + [Hystrix服务降级](#hystrix----)
+      - [Hystrix-Dashboard](#hystrix-dashboard)
+    + [Gateway服务网关](#gateway----)
+      - [gateway动态路由](#gateway----)
+      - [predicate断言/谓语](#predicate-----)
+      - [Filter过滤器](#filter---)
+    + [springcloudConfig配置中心](#springcloudconfig----)
+      - [springcloudConfigClient](#springcloudconfigclient)
+      - [config-client配置动态刷新](#config-client------)
+    + [springcloudbus消息总线](#springcloudbus----)
+      - [两种思路：](#-----)
+      - [实现方法](#----)
+      - [实现差异化更新配置](#---------)
+    + [spring-cloud-stream](#spring-cloud-stream)
+      - [springcloud-stream流程](#springcloud-stream--)
+      - [使用方法](#----)
+      - [集群重复消费问题](#--------)
+      - [SpringCloud-stream消息持久化](#springcloud-stream-----)
+    + [springcloud-Sleuth分布式请求链路跟踪](#springcloud-sleuth---------)
+
+<small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
+
 
 ## 要点
-### ribbon 服务调用 负载均衡
+### ribbon服务调用负载均衡
 #### 1.ribbon的核心是接口IRule
 
 ```java
@@ -59,7 +77,7 @@ public class MyRule {
 }
 ```
 
-### Feign/OpenFeign 服务调用
+### Feign/OpenFeign服务调用
 
 一个生命式的Web服务客户端，让编写Web服务客户端变得容易，只需要创建一个接口并在接口上添加注释即可
 
@@ -141,7 +159,7 @@ logging:
 2020-05-06 20:31:56.480 DEBUG 18256 --- [p-nio-80-exec-1] c.e.cloud.service.PaymentFeignService    : [PaymentFeignService#getPaymentById] <--- END HTTP (88-byte body)
 ```
 
-### Hystrix 服务降级
+### Hystrix服务降级
 
 服务雪崩：多个微服务之间存在多级调用关系，也就是所谓的“扇出”，如果扇出的链路上某个服务响应时间过长或者不可用，对越靠近源头的服务影响越大，占用越来越多的系统资源，进而引起系统崩溃，整个系统也会发生级联故障。
 
@@ -770,7 +788,7 @@ public class MyLogGatewayFilter implements GlobalFilter, Ordered {
 这里exchange就是我们的调用，可以获取到request和response。我们可以写自己的逻辑，通过的话就是chain.filter(exchange)，将调用传给下一个filter。重写Ordered是给Filter排序，优先级。
 
 
-### springcloud config 配置中心
+### springcloudConfig配置中心
 
 解决分布式系统的配置问题。
 集中化的外部配置支持。
@@ -793,7 +811,7 @@ name: 服务名
 profile： 环境
 
 
-#### springcloud config client
+#### springcloudConfigClient
 
 application.yml是用户级的资源配置项
 bootstrap.yml是系统级的，优先级更高
@@ -865,7 +883,7 @@ curl -X POST http://localhost:3355/actuator/refresh
 后面的消息总线会有帮助的！
 
 
-### springcloud bus消息总线
+### springcloudbus消息总线
 
 如果想自动完成上面的配置更新，需要引入springcloud bus消息总线，Bus支持两种消息代理：RabbitMQ和Kafka
 
@@ -993,7 +1011,7 @@ spring:
 3355是更新的，3366不会被更新。
 
 
-### spring cloud stream
+### spring-cloud-stream
 
 屏蔽底层消息中间件的差异，减低切换成本，同意消息的编程模型。
 
@@ -1016,7 +1034,7 @@ SpringCloud Stream为一些供应商的消息中间件产品提供了个性化�
 
 **Stream中的消息通信方式遵循了发布-订阅模式。** 根据topic主题进行广播： RabbitMQ中的Exchange，Kafka中的Topic。 
 
-#### springcloud stream流程
+#### springcloud-stream流程
 
 - Binder： 连接消息中间件，屏蔽差异
 - Channel： 通道，是队列Queue的一种抽象，在消息通信系统中就是实现存储和转发的媒介，通过Channel对队列进行配置。
@@ -1268,12 +1286,12 @@ spring:
           group: test   #分组
 ```
 
-#### SpringCloud stream消息持久化
+#### SpringCloud-stream消息持久化
 
 如果我们给一个消费者自定义了分组group，当消费者启动后，会自动去mq拉取未消费的消息。但是如果我们没有指定自定义分组group，它将不会去拉去未消费的消息，导致消息丢失。所以我们要设置group参数配置。
 
 
-### springcloud Sleuth 分布式请求链路跟踪
+### springcloud-Sleuth分布式请求链路跟踪
 
 在微服务框架中，一个由客户端发起的请求在后端系统中会经过多个不同的服务节点调用来协同产生最后的请求结果，每一个全段请求都会形成一个复杂的分布式服务调用链路。链路中的任何一环出现高延时或错误都会引起整个请求的失败。
 
