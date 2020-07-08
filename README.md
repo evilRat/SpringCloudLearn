@@ -10,6 +10,7 @@ SpringCloud学习项目
 ### springcloud config 配置中心
 ### springcloud bus消息总线
 ### spring cloud stream
+### springcloud Sleuth 分布式请求链路跟踪
 
 ## 要点
 ### ribbon 服务调用 负载均衡
