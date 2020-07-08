@@ -1277,3 +1277,127 @@ spring:
 在微服务框架中，一个由客户端发起的请求在后端系统中会经过多个不同的服务节点调用来协同产生最后的请求结果，每一个全段请求都会形成一个复杂的分布式服务调用链路。链路中的任何一环出现高延时或错误都会引起整个请求的失败。
 
 springcloud sleuth提供了一套完整的服务跟踪解决方案，在分布式系统中提供追踪解决方案并且兼容支持了zipkin，通过zipkin记录我们的调用记录数据。
+
+
+Zipkin 是一个开放源代码分布式的跟踪系统，每个服务向zipkin报告即时数据，zipkin会根据调用关系通过Zipkin UI生成依赖关系图。
+Zipkin提供了可插拔数据存储方式：In-Memory、MySql、Cassandra以及Elasticsearch。为了方便在开发环境我直接采用了In-Memory方式进行存储，生产数据量大的情况则推荐使用Elasticsearch。
+
+Zipkin下载jar包运行即可：
+
+官网（github）有下载脚本：
+```shell script
+curl -sSL https://zipkin.io/quickstart.sh | bash -s
+java -jar zipkin.jar
+```
+我看了一下脚本内容，就是去maven中央仓库下载jar包，我们可以直接去阿里maven库下载，官网脚本下载要一个多小时。。。
+
+```shell script
+➜  Downloads curl -sSL https://zipkin.io/quickstart.sh | bash -s
+
+Thank you for trying Zipkin!
+This installer is provided as a quick-start helper, so you can try Zipkin out
+without a lengthy installation process.
+
+Fetching version number of latest io.zipkin:zipkin-server release...
+Latest release of io.zipkin:zipkin-server seems to be 2.21.5
+
+Downloading io.zipkin:zipkin-server:2.21.5:exec to zipkin.jar...
+> curl -fL -o 'zipkin.jar' 'https://repo1.maven.org/maven2/io/zipkin/zipkin-server/2.21.5/zipkin-server-2.21.5-exec.jar'
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  2 53.3M    2 1594k    0     0  11996      0  1:17:40  0:02:16  1:15:24 10799
+
+```
+
+
+或者也可以拉取docker镜像来使用：
+```shell script
+docker run -d -p 9411:9411 openzipkin/zipkin
+```
+
+下载jar包后直接启动：
+
+```shell script
+➜  Downloads java -jar zipkin-server-2.21.5-exec.jar 
+
+                  oo
+                 oooo
+                oooooo
+               oooooooo
+              oooooooooo
+             oooooooooooo
+           ooooooo  ooooooo
+          oooooo     ooooooo
+         oooooo       ooooooo
+        oooooo   o  o   oooooo
+       oooooo   oo  oo   oooooo
+     ooooooo  oooo  oooo  ooooooo
+    oooooo   ooooo  ooooo  ooooooo
+   oooooo   oooooo  oooooo  ooooooo
+  oooooooo      oo  oo      oooooooo
+  ooooooooooooo oo  oo ooooooooooooo
+      oooooooooooo  oooooooooooo
+          oooooooo  oooooooo
+              oooo  oooo
+
+     ________ ____  _  _____ _   _
+    |__  /_ _|  _ \| |/ /_ _| \ | |
+      / / | || |_) | ' / | ||  \| |
+     / /_ | ||  __/| . \ | || |\  |
+    |____|___|_|   |_|\_\___|_| \_|
+
+:: version 2.21.5 :: commit 7f4f274 ::
+
+2020-07-08 21:37:25.417  INFO 9877 --- [           main] z.s.ZipkinServer                         : Starting ZipkinServer on kongzheng1993-PC with PID 9877 (/home/kongzheng1993/Downloads/zipkin-server-2.21.5-exec.jar started by kongzheng1993 in /home/kongzheng1993/Downloads)
+2020-07-08 21:37:25.421  INFO 9877 --- [           main] z.s.ZipkinServer                         : The following profiles are active: shared
+2020-07-08 21:37:27.121  INFO 9877 --- [           main] c.l.a.c.u.SystemInfo                     : hostname: kongzheng1993-pc (from /proc/sys/kernel/hostname)
+2020-07-08 21:37:27.783  INFO 9877 --- [oss-http-*:9411] c.l.a.s.Server                           : Serving HTTP at /0:0:0:0:0:0:0:0%0:9411 - http://127.0.0.1:9411/
+2020-07-08 21:37:27.785  INFO 9877 --- [           main] c.l.a.s.ArmeriaAutoConfiguration         : Armeria server started at ports: {/0:0:0:0:0:0:0:0%0:9411=ServerPort(/0:0:0:0:0:0:0:0%0:9411, [http])}
+2020-07-08 21:37:27.829  INFO 9877 --- [           main] z.s.ZipkinServer                         : Started ZipkinServer in 3.883 seconds (JVM running for 5.366)
+
+```
+
+此时访问`http://localhost:9411/zipkin/`可以看到zipkin ui，说明启动成功了。
+
+<img src="./readme-resources/zipkin-ui.png"/>
+
+
+一条请求链路通过Trace Id唯一标识，Span标识发起的请求信息，各个Span通过parten Id关联起来。其实就是组成了一个树，traceId标识整个链路，span标识一次微服务之间的调用，每个span通过parentId连接起来，通过parentId可以找到这个Span在链路中的前一个span。
+
+在我们想要使用sleuth的微服务中引入zipkin的依赖，**别问为什么是引入zipkin，问就是包含。。**
+
+pom.xml引入zipkin依赖：
+```xml
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-zipkin</artifactId>
+        </dependency>
+```
+
+application.yml配置zipkin和sleuth：
+```yaml
+spring:
+  application:
+    name: payment-service
+  zipkin:
+    base-url: http://localhost:9411
+  sleuth:
+    sampler:
+      #采样率，0～1之间，1表示全部采集
+      probability: 1
+```
+
+**注意：是每个要采集链路日志的都需要以上配置哦！**
+
+我们这里复制出provider-zipkin-payment8001和consumer-zipkin-order80两个服务，进行配置后，启动，多刷几次接口，然后在zipkin ui设置筛选条件后可以看到调用记录。
+
+<img src="./readme-resources/zipkin-ui1.png"/>
+
+点击可以看到调用链：
+
+<img src="./readme-resources/zipkin-ui2.png"/>
+
+
+
+
+
