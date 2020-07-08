@@ -2,9 +2,9 @@
 SpringCloud学习项目
 
 - [SpringCloudLearn](#springcloudlearn)
-  * [要点](#--)
-    + [ribbon服务调用负载均衡](#ribbon--------)
-      - [1.ribbon的核心是接口IRule](#1ribbon------irule)
+  * [要点](#要点)
+    + [ribbon服务调用负载均衡](#ribbon服务调用负载均衡)
+      - [1.ribbon的核心是接口IRule](#1.ribbon的核心是接口IRule)
       - [2.手写LB算法](#2--lb--)
     + [Feign/OpenFeign服务调用](#feign-openfeign----)
     + [Hystrix服务降级](#hystrix----)
