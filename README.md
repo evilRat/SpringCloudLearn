@@ -1417,6 +1417,29 @@ spring:
 <img src="./readme-resources/zipkin-ui2.png"/>
 
 
+### springcloud-alibaba
 
+18年10月31日springcloud alibaba入驻了springcloud官方孵化器，并在maven中发布了第一个版本。
 
+springcloud alibaba是阿里把自己内部的很多分布式组建融合起来：
+
+- Sentinel: 阿里开源产品，流量控制、熔断降级、负载均衡等
+- Nacos： 阿里开源产品，一个更易于构建云原生应用的动态服务发现、配置管理和服务治理平台。
+- RocketMQ： 阿里消息中间件。
+- Dubbo： 阿里出品的高性能RPC框架。
+- Seata： 阿里出品，分布式事物解决方案
+- Alibaba Cloud OSS: 阿里云对象存储服务，
+- Alibaba Cloud SchedulerX: 阿里中间件团队出品的一款分布式调度产品。支持周期性任务和固定时间触发任务。
+
+#### Nacos注册中心+配置中心
+
+Naming和Configuration的前两个字母，最后一个s代表Service。
+
+**是一个更易于构建云原生应用的动态服务发现、配置中心和服务管理平台**
+
+Nacos=Eureka+config+bus
+
+直接官网下载启动即可。。。
+
+通过localhost:8848访问nacos ui
 
