@@ -26,6 +26,8 @@ SpringCloud学习项目
       - [集群重复消费问题](#-集群重复消费问题)
       - [SpringCloud-stream消息持久化](#springcloud-stream消息持久化)
     + [springcloud-Sleuth分布式请求链路跟踪](#springcloud-Sleuth分布式请求链路跟踪)
+    + [springcloud-alibaba](#springcloud-alibaba)
+      - [Nacos注册中心+配置中心](#Nacos注册中心+配置中心)
 
 <small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
 
@@ -1443,3 +1445,65 @@ Nacos=Eureka+config+bus
 
 通过localhost:8848访问nacos ui
 
+我这里下载太慢，所以我直接clone了一份nacos github仓库，然后maven编译了一份：
+
+```shell script
+git clone https://github.com/alibaba/nacos.git
+cd nacos
+mvn -Prelease-nacos -Dmaven.test.skip=true clean install -U
+cd distribute/target/nacos-server-1.3.1/nacos/bin
+bash startup.sh
+```
+
+这里有一个坑，官方的启动脚本，默认使用的shell是sh，而我用的是ubuntu，需要用bash才能正常启动。。。
+
+然后就可以通过`http://localhost:8848/nacos/`访问nacos ui了。
+
+<img src="/readme-resources/nacos.png">
+
+
+配置服务注册到nacos
+
+1. 在服务中添加nacos相关依赖
+
+```xml
+            <!-- spring cloud alibaba -->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-alibaba-dependencies</artifactId>
+            <version>2.1.0.RELEASE</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-alibaba-nacos-discovery</artifactId>
+        </dependency>
+```
+
+2. 服务配置nacos地址
+
+```yaml
+spring:
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+```
+
+3. 启动类增加注解
+
+```java
+@SpringBootApplication
+@EnableDiscoveryClient
+public class PaymentMain9001 {
+    public static void main(String[] args) {
+        SpringApplication.run(PaymentMain9001.class, args);
+    }
+}
+```
+
+启动后即可在nacos页面看到注册进来的微服务：
+
+<img src="nacos_registry.png">
