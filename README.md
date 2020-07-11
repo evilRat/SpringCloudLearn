@@ -27,7 +27,7 @@ SpringCloud学习项目
       - [SpringCloud-stream消息持久化](#springcloud-stream消息持久化)
     + [springcloud-Sleuth分布式请求链路跟踪](#springcloud-Sleuth分布式请求链路跟踪)
     + [springcloud-alibaba](#springcloud-alibaba)
-      - [Nacos注册中心+配置中心](#Nacos注册中心+配置中心)
+      - [Nacos注册中心&配置中心](#Nacos注册中心&配置中心)
 
 <small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
 
@@ -1433,7 +1433,7 @@ springcloud alibaba是阿里把自己内部的很多分布式组建融合起来�
 - Alibaba Cloud OSS: 阿里云对象存储服务，
 - Alibaba Cloud SchedulerX: 阿里中间件团队出品的一款分布式调度产品。支持周期性任务和固定时间触发任务。
 
-#### Nacos注册中心+配置中心
+#### Nacos注册中心&配置中心
 
 Naming和Configuration的前两个字母，最后一个s代表Service。
 
