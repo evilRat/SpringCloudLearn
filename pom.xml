@@ -13,6 +13,7 @@
     <modules>
         <module>provider-payment8001</module>
         <module>provider-payment8002</module>
+        <module>provider-nacos-payment9001</module>
         <module>provider-zk-payment8004</module>
         <module>provider-consul-payment8006</module>
         <module>provider-hystrix-payment8001</module>
