@@ -1508,4 +1508,4 @@ public class PaymentMain9001 {
 
 启动后即可在nacos页面看到注册进来的微服务：
 
-<img src="nacos_registry.png">
+<img src="/readme-resources/nacos_registry.png">
